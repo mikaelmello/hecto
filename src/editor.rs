@@ -1,5 +1,5 @@
+use crate::Terminal;
 use std::io::{self, stdout, Write};
-
 use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 
 fn die(e: std::io::Error) {
@@ -9,11 +9,15 @@ fn die(e: std::io::Error) {
 
 pub struct Editor {
     should_quit: bool,
+    terminal: Terminal,
 }
 
 impl Editor {
     pub fn new() -> Self {
-        Self { should_quit: false }
+        Self {
+            should_quit: false,
+            terminal: Terminal::new().expect("Failed to initialize terminal"),
+        }
     }
 
     pub fn run(&mut self) {
@@ -55,7 +59,7 @@ impl Editor {
     }
 
     fn draw_rows(&self) {
-        for _ in 0..24 {
+        for _ in 0..self.terminal.size().height {
             println!("~\r");
         }
     }
