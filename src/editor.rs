@@ -9,15 +9,22 @@ fn die(e: std::io::Error) {
     panic!(e);
 }
 
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+}
+
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
+    cursor_position: Position,
 }
 
 impl Editor {
     pub fn new() -> Self {
         Self {
             should_quit: false,
+            cursor_position: Position { x: 0, y: 0 },
             terminal: Terminal::new().expect("Failed to initialize terminal"),
         }
     }
@@ -42,21 +49,50 @@ impl Editor {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Up
+            | Key::Down
+            | Key::Left
+            | Key::Right
+            | Key::Home
+            | Key::End
+            | Key::PageUp
+            | Key::PageDown => self.move_cursor(pressed_key),
             _ => (),
         }
         Ok(())
     }
 
+    fn move_cursor(&mut self, key: Key) {
+        let Position { mut x, mut y } = self.cursor_position;
+        let size = self.terminal.size();
+        let height = size.height.saturating_sub(1) as usize;
+        let width = size.width.saturating_sub(1) as usize;
+
+        match key {
+            Key::Up => y = y.saturating_sub(1),
+            Key::Down => y = std::cmp::min(y.saturating_add(1), height),
+            Key::Left => x = x.saturating_sub(1),
+            Key::Right => x = std::cmp::min(x.saturating_add(1), width),
+
+            Key::Home => x = 0,
+            Key::End => x = width,
+            Key::PageUp => y = 0,
+            Key::PageDown => y = height,
+            _ => (),
+        }
+        self.cursor_position = Position { x, y };
+    }
+
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
-        Terminal::cursor_position(0, 0);
+        Terminal::cursor_position(&Position { x: 0, y: 0 });
 
         if self.should_quit {
             Terminal::clear_screen();
             println!("Good bye!");
         } else {
             self.draw_rows();
-            Terminal::cursor_position(0, 0);
+            Terminal::cursor_position(&self.cursor_position);
         }
 
         Terminal::cursor_show();
