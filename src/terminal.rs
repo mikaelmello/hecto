@@ -43,6 +43,7 @@ impl Terminal {
         print!("{}", termion::clear::All);
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     pub fn cursor_position(position: &Position) {
         let Position { x, y } = position;
         let x = x.saturating_add(1) as u16;

@@ -52,8 +52,8 @@ impl Editor {
             let file_name = &args[1];
             let doc = Document::open(&file_name);
 
-            if doc.is_ok() {
-                doc.unwrap()
+            if let Ok(doc) = doc {
+                doc
             } else {
                 initial_status = format!("ERR: Could not open file: {}", file_name);
                 Document::default()
@@ -112,11 +112,7 @@ impl Editor {
         let Position { mut x, mut y } = self.cursor_position;
 
         let height = self.document.len();
-        let mut width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
+        let mut width = self.document.row_len(y);
 
         match key {
             Key::Up => y = y.saturating_sub(1),
@@ -126,11 +122,7 @@ impl Editor {
                     x -= 1;
                 } else if y > 0 {
                     y -= 1;
-                    x = if let Some(row) = self.document.row(y) {
-                        row.len()
-                    } else {
-                        0
-                    }
+                    x = width;
                 }
             }
             Key::Right => {
@@ -161,11 +153,7 @@ impl Editor {
             _ => (),
         }
 
-        width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
+        width = self.document.row_len(y);
 
         if x > width {
             x = width;
