@@ -1,4 +1,6 @@
 #![warn(clippy::all, clippy::pedantic)]
+#![allow(clippy::comparison_chain)]
+
 mod document;
 mod editor;
 mod row;
