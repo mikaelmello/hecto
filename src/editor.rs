@@ -46,7 +46,7 @@ impl StatusMessage {
 impl Editor {
     pub fn default() -> Self {
         let args: Vec<String> = env::args().collect();
-        let mut initial_status = String::from("HELP: Ctrl-Q = quit");
+        let mut initial_status = String::from("HELP: Ctrl-S = save | Ctrl-Q = quit");
 
         let document = if args.len() > 1 {
             let file_name = &args[1];
@@ -92,6 +92,7 @@ impl Editor {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Ctrl('s') => self.save(),
             Key::Char(c) => {
                 self.document.insert(&self.cursor_position, c);
                 self.move_cursor(Key::Right)
@@ -258,6 +259,57 @@ impl Editor {
             offset.x = x;
         } else if x >= offset.x.saturating_add(width) {
             offset.x = x.saturating_sub(width).saturating_add(1);
+        }
+    }
+
+    fn prompt(&mut self, prompt: &str) -> Result<Option<String>, std::io::Error> {
+        let mut result = String::new();
+        loop {
+            self.status_message = StatusMessage::from(format!("{}{}", prompt, result));
+            self.refresh_screen()?;
+
+            match Terminal::read_key()? {
+                Key::Backspace => {
+                    if !result.is_empty() {
+                        result.pop();
+                    }
+                }
+                Key::Ctrl('q') => {
+                    self.should_quit = true;
+                    break;
+                }
+                Key::Esc => {
+                    result.truncate(0);
+                    break;
+                }
+                Key::Char('\n') | Key::Ctrl('s') => break,
+                Key::Char(c) if !c.is_control() => result.push(c),
+                _ => (),
+            }
+        }
+        self.status_message = StatusMessage::from(String::new());
+
+        return Ok(match result.is_empty() {
+            true => None,
+            false => Some(result),
+        });
+    }
+
+    fn save(&mut self) {
+        if self.document.file_name.is_none() {
+            let new_name = self.prompt("Save as: ").unwrap_or(None);
+
+            if new_name.is_none() {
+                self.status_message = StatusMessage::from("Save aborted.".to_string());
+                return;
+            }
+
+            self.document.file_name = new_name;
+        }
+
+        self.status_message = match self.document.save() {
+            Ok(_) => StatusMessage::from("File saved successfully.".to_string()),
+            Err(_) => StatusMessage::from("Error writing file!".to_string()),
         }
     }
 }

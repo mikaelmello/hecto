@@ -1,10 +1,11 @@
-use std::fs;
+use std::{fs, io::Write};
 
 use crate::{Position, Row};
 
 #[derive(Default)]
 pub struct Document {
     rows: Vec<Row>,
+    pub file_name: Option<String>,
 }
 
 impl Document {
@@ -19,7 +20,21 @@ impl Document {
             rows.push(Row::from(value));
         }
 
-        Ok(Self { rows })
+        Ok(Self {
+            rows,
+            file_name: Some(filename.to_string()),
+        })
+    }
+
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        if let Some(file_name) = &self.file_name {
+            let mut file = fs::File::create(file_name)?;
+            for row in &self.rows {
+                file.write_all(row.as_bytes())?;
+                file.write_all(b"\n")?;
+            }
+        }
+        Ok(())
     }
 
     pub fn insert(&mut self, at: &Position, c: char) {
