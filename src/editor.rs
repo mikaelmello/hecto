@@ -11,6 +11,7 @@ use unicode_segmentation::UnicodeSegmentation;
 const STATUS_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 const STATUS_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const QUIT_TIMES: u8 = 3;
 
 fn die(e: std::io::Error) {
     print!("{}", termion::clear::All);
@@ -30,6 +31,7 @@ pub struct Editor {
     document: Document,
     offset: Position,
     status_message: StatusMessage,
+    quit_times: u8,
 }
 
 struct StatusMessage {
@@ -72,6 +74,7 @@ impl Editor {
             offset: Position::default(),
             cursor_position: Position::default(),
             status_message: StatusMessage::from(initial_status),
+            quit_times: QUIT_TIMES,
         }
     }
 
@@ -94,7 +97,7 @@ impl Editor {
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
-            Key::Ctrl('q') => self.should_quit = true,
+            Key::Ctrl('q') => return Ok(self.quit()),
             Key::Ctrl('s') => self.save(),
             Key::Char(c) => {
                 self.document.insert(&self.cursor_position, c);
@@ -119,6 +122,10 @@ impl Editor {
         }
 
         self.scroll();
+        if self.quit_times < QUIT_TIMES {
+            self.quit_times = QUIT_TIMES;
+            self.status_message = StatusMessage::from(String::new());
+        }
         Ok(())
     }
 
@@ -243,7 +250,17 @@ impl Editor {
             file_name = name.graphemes(true).take(20).collect();
         }
 
-        status = format!("{} - {} lines", file_name, self.document.len());
+        let modified_indicator = match self.document.is_dirty() {
+            true => " (modified)",
+            false => "",
+        };
+
+        status = format!(
+            "{} - {} lines{}",
+            file_name,
+            self.document.len(),
+            modified_indicator
+        );
 
         let line_indicator = format!(
             "{}:{} ",
@@ -329,6 +346,18 @@ impl Editor {
             true => None,
             false => Some(result),
         });
+    }
+
+    fn quit(&mut self) {
+        if self.quit_times > 0 && self.document.is_dirty() {
+            self.status_message = StatusMessage::from(format!(
+                "WARNING! File has unsaved changes. Press Ctrl-Q {} more times to quit.",
+                self.quit_times
+            ));
+            self.quit_times -= 1;
+            return;
+        }
+        self.should_quit = true
     }
 
     fn save(&mut self) {
