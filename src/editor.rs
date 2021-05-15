@@ -53,8 +53,7 @@ impl Editor {
         let args: Vec<String> = env::args().collect();
         let mut initial_status = String::from("HELP: Ctrl-S = save | Ctrl-Q = quit");
 
-        let document = if args.len() > 1 {
-            let file_name = &args[1];
+        let document = if let Some(file_name) = args.get(1) {
             let doc = Document::open(&file_name);
 
             if let Ok(doc) = doc {
@@ -134,7 +133,7 @@ impl Editor {
         let Position { mut x, mut y } = self.cursor_position;
 
         let height = self.document.len();
-        let mut width = self.document.row_len(y);
+        let mut width = self.document.row_len(y).unwrap_or(0);
 
         match key {
             Key::Up => y = y.saturating_sub(1),
@@ -144,7 +143,7 @@ impl Editor {
                     x -= 1;
                 } else if y > 0 {
                     y -= 1;
-                    x = self.document.row_len(y);
+                    x = self.document.row_len(y).unwrap_or(0);
                 }
             }
             Key::Right => {
@@ -160,14 +159,14 @@ impl Editor {
             Key::End => x = width,
             Key::PageUp => {
                 y = if y > terminal_height {
-                    y - terminal_height
+                    y.saturating_sub(terminal_height)
                 } else {
                     0
                 }
             }
             Key::PageDown => {
                 y = if y.saturating_add(terminal_height) < height {
-                    y + terminal_height as usize
+                    y.saturating_add(terminal_height)
                 } else {
                     height
                 }
@@ -175,7 +174,7 @@ impl Editor {
             _ => (),
         }
 
-        width = self.document.row_len(y);
+        width = self.document.row_len(y).unwrap_or(0);
 
         if x > width {
             x = width;
@@ -209,6 +208,8 @@ impl Editor {
         let welcome_message = format!("Hecto editor -- version {}\r", VERSION);
         let width = self.terminal.size().width as usize;
         let len = welcome_message.len();
+
+        #[allow(clippy::integer_arithmetic, clippy::integer_division)]
         let padding = width.saturating_sub(len) / 2;
         let spaces = " ".repeat(padding.saturating_sub(1));
 
@@ -217,12 +218,16 @@ impl Editor {
         println!("{}", welcome_message);
     }
 
+    #[allow(clippy::integer_division, clippy::integer_arithmetic)]
     fn draw_rows(&self) {
         let height = self.terminal.size().height;
         for terminal_row in 0..height {
             Terminal::clear_current_line();
 
-            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
+            if let Some(row) = self
+                .document
+                .row(self.offset.y.saturating_add(terminal_row as usize))
+            {
                 self.draw_row(row);
             } else if self.document.is_empty() && terminal_row == height / 3 {
                 self.draw_welcome_message();
@@ -235,7 +240,7 @@ impl Editor {
     fn draw_row(&self, row: &Row) {
         let width = self.terminal.size().width as usize;
         let start = self.offset.x;
-        let end = self.offset.x + width;
+        let end = self.offset.x.saturating_add(width);
 
         let row = row.render(start, end);
         println!("{}\r", row);
@@ -269,9 +274,7 @@ impl Editor {
         );
         let len = status.len() + line_indicator.len();
 
-        if width > len {
-            status.push_str(&" ".repeat(width - len));
-        }
+        status.push_str(&" ".repeat(width.saturating_sub(len)));
 
         status = format!("{}{}", status, line_indicator);
 
