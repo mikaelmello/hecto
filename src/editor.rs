@@ -18,7 +18,7 @@ fn die(e: std::io::Error) {
     panic!(e);
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -99,7 +99,7 @@ impl Editor {
         match pressed_key {
             Key::Ctrl('q') => return Ok(self.quit()),
             Key::Ctrl('s') => self.save(),
-            Key::Ctrl('f') => self.find(),
+            Key::Ctrl('f') => self.search(),
             Key::Char(c) => {
                 self.document.insert(&self.cursor_position, c);
                 self.move_cursor(Key::Right)
@@ -388,20 +388,43 @@ impl Editor {
         }
     }
 
-    fn find(&mut self) {
-        let query_handler = |editor: &mut Self, _, query: &String| {
-            if let Some(position) = editor.document.find(&query[..]) {
+    fn search(&mut self) {
+        let old_position = self.cursor_position.clone();
+
+        let query_handler = |editor: &mut Self, key, query: &String| {
+            let mut moved = false;
+
+            match key {
+                Key::Right | Key::Down => {
+                    editor.move_cursor(Key::Right);
+                    moved = true;
+                }
+                _ => (),
+            }
+
+            if let Some(position) = editor.document.find(&query[..], &editor.cursor_position) {
                 editor.cursor_position = position;
                 editor.scroll();
+            } else if moved {
+                editor.move_cursor(Key::Left);
             }
         };
 
-        if let Some(query) = self.prompt("Search: ", query_handler).unwrap_or(None) {
-            if let Some(position) = self.document.find(&query[..]) {
+        if let Some(query) = self
+            .prompt(
+                "Search (ESC to cancel, Arrows to navigate): ",
+                query_handler,
+            )
+            .unwrap_or(None)
+        {
+            if let Some(position) = self.document.find(&query[..], &old_position) {
                 self.cursor_position = position;
             } else {
                 self.status_message = StatusMessage::from(format!("Not found: {}", query));
             }
+        } else {
+            self.cursor_position = old_position;
+            self.scroll();
         }
     }
 }
