@@ -107,6 +107,22 @@ impl Row {
         }
     }
 
+    pub fn find(&self, query: &str) -> Option<usize> {
+        let matching_byte_index = match self.string.find(query) {
+            Some(idx) => idx,
+            None => return None,
+        };
+
+        for (grapheme_index, (byte_index, _)) in self.string[..].grapheme_indices(true).enumerate()
+        {
+            if matching_byte_index == byte_index {
+                return Some(grapheme_index);
+            }
+        }
+
+        None
+    }
+
     #[must_use]
     pub fn len(&self) -> usize {
         self.len
