@@ -189,7 +189,9 @@ impl Row {
             }
         }
 
+        let mut prev_is_separator = true;
         let mut index = 0;
+
         while let Some(c) = chars.get(index) {
             if let Some(word) = word {
                 if matches.contains(&index) {
@@ -201,12 +203,24 @@ impl Row {
                 }
             }
 
-            if c.is_ascii_digit() {
+            let previous_highlight = if index > 0 {
+                highlighting
+                    .get(index - 1)
+                    .unwrap_or(&highlighting::Type::None)
+            } else {
+                &highlighting::Type::None
+            };
+
+            if (c.is_ascii_digit()
+                && (prev_is_separator || previous_highlight == &highlighting::Type::Number))
+                || (c == &'.' && previous_highlight == &highlighting::Type::Number)
+            {
                 highlighting.push(highlighting::Type::Number);
             } else {
                 highlighting.push(highlighting::Type::None);
             }
 
+            prev_is_separator = c.is_ascii_punctuation() || c.is_ascii_whitespace();
             index += 1;
         }
 
