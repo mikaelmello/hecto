@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Empty launch",
+      "type": "lldb",
+      "request": "launch",
+      "preLaunchTask": "rust: cargo build",
+      "program": "${workspaceRoot}/target/debug/hecto",
+      "args": [],
+      "cwd": "${workspaceRoot}",
+    },
+    {
+      "name": "Launch with editor.rs",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceRoot}/target/debug/hecto",
+      "preLaunchTask": "rust: cargo build",
+      "args": [
+        "src/editor.rs"
+      ],
+      "cwd": "${workspaceRoot}",
+    }
+  ]
+}
