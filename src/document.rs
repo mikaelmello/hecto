@@ -1,6 +1,6 @@
 use std::{fs, io::Write};
 
-use crate::{row, Position, Row};
+use crate::{row, Position, Row, SearchDirection};
 
 #[derive(Default)]
 pub struct Document {
@@ -100,15 +100,36 @@ impl Document {
     }
 
     #[must_use]
-    pub fn find(&self, query: &str, after: &Position) -> Option<Position> {
-        let mut x = after.x;
-        for (y, row) in self.rows.iter().enumerate().skip(after.y) {
-            if let Some(x) = row.find(query, x) {
-                return Some(Position { x, y });
-            }
-            x = 0;
+    pub fn find(&self, query: &str, at: &Position, direction: SearchDirection) -> Option<Position> {
+        if at.y >= self.rows.len() {
+            return None;
         }
 
+        let mut position = at.clone();
+
+        let (start, end) = if direction == SearchDirection::Forward {
+            (at.y, self.rows.len())
+        } else {
+            (0, at.y.saturating_add(1))
+        };
+
+        for _ in start..end {
+            if let Some(row) = self.rows.get(position.y) {
+                if let Some(x) = row.find(&query, position.x, direction) {
+                    position.x = x;
+                    return Some(position);
+                }
+                if direction == SearchDirection::Forward {
+                    position.y = position.y.saturating_add(1);
+                    position.x = 0;
+                } else {
+                    position.y = position.y.saturating_sub(1);
+                    position.x = self.rows[position.y].len();
+                }
+            } else {
+                return None;
+            }
+        }
         None
     }
 
