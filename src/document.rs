@@ -18,7 +18,9 @@ impl Document {
         let contents = fs::read_to_string(filename)?;
 
         for value in contents.lines() {
-            rows.push(Row::from(value));
+            let mut row = Row::from(value);
+            row.highlight(None);
+            rows.push(row);
         }
 
         Ok(Self {
@@ -55,11 +57,13 @@ impl Document {
         if at.y == self.rows.len() {
             let mut row = Row::default();
             row.insert(0, c);
+            row.highlight(None);
             self.rows.push(row);
         } else {
             #[allow(clippy::indexing_slicing)]
             let row = &mut self.rows[at.y];
             row.insert(at.x, c);
+            row.highlight(None);
         }
     }
 
@@ -76,10 +80,12 @@ impl Document {
         if at.x == self.rows[at.y].len() && at.y + 1 < len {
             let next_row = self.rows.remove(at.y + 1);
             let row = &mut self.rows[at.y];
+            row.highlight(None);
             row.append(&next_row);
         } else {
             let row = &mut self.rows[at.y];
             row.delete(at.x);
+            row.highlight(None);
         }
     }
 
@@ -93,7 +99,11 @@ impl Document {
         }
 
         #[allow(clippy::indexing_slicing)]
-        let new_row = self.rows[at.y].split(at.x);
+        let current_row = &mut self.rows[at.y];
+        let mut new_row = current_row.split(at.x);
+
+        current_row.highlight(None);
+        new_row.highlight(None);
 
         #[allow(clippy::integer_arithmetic)]
         self.rows.insert(at.y + 1, new_row);
@@ -131,6 +141,12 @@ impl Document {
             }
         }
         None
+    }
+
+    pub fn highlight(&mut self, word: Option<&str>) {
+        for row in &mut self.rows {
+            row.highlight(word);
+        }
     }
 
     #[must_use]
